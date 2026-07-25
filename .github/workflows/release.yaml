@@ -27,10 +27,10 @@ jobs:
         id: versioning
 
       - name: perform lint check
-        run: ../make-script lint-check
+        run: make lint-check
 
       - name: perform tests
-        run: ../make-script test
+        run: make test
 
       - if: ${{ steps.is-default.outputs.is-default == 'true' }}
         uses: exadrift/github-actions/release@release-v1
