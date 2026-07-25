@@ -380,7 +380,7 @@ func (t *State) clear(x0, y0, x1, y1 int) {
 	}
 }
 
-// not used at present
+// TODO: not used at present
 // func (t *State) clearAll() {
 // 	t.clear(0, 0, t.cols-1, t.rows-1)
 // }
