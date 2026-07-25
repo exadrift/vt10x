@@ -1,8 +1,10 @@
 package vt10x
 
 import (
+	"fmt"
 	"io"
 	"log"
+	"strings"
 	"sync"
 )
 
@@ -154,6 +156,50 @@ func (t *State) Cell(x, y int) Glyph {
 		cell.BG = bg
 	}
 	return cell
+}
+
+// AnsiRow returns an ANSI string representing the row at position y
+func (t *State) AnsiRow(y int) string {
+	// scan the glyphs and produce a single ANSI string
+	var fg, bg Color
+	var prevFg, prevBg Color
+
+	var cell *Glyph
+	var builder strings.Builder
+	builder.Grow(1000)
+
+	for x := 0; x < t.cols; x++ {
+		// eliminate the copying of the glyph, this really slows down the render
+		cell = &t.lines[y][x]
+
+		bg = cell.BG
+
+		if ovrFg, ok := t.colorOverride[cell.FG]; ok {
+			fg = ovrFg
+		} else {
+			fg = cell.FG
+		}
+
+		if ovrBg, ok := t.colorOverride[cell.BG]; ok {
+			bg = ovrBg
+		} else {
+			bg = cell.BG
+		}
+
+		if prevFg != fg {
+			fmt.Fprintf(&builder, "\x1b[%dm", 30+ansiColorMap[fg])
+			prevFg = fg
+		}
+		if prevBg != bg {
+			fmt.Fprintf(&builder, "\x1b[%dm", 40+ansiColorMap[bg])
+			prevBg = bg
+		}
+
+		builder.WriteRune(cell.Char)
+	}
+	builder.WriteString(AnsiReset)
+
+	return builder.String()
 }
 
 // Cursor returns the current position of the cursor.
