@@ -22,6 +22,8 @@ const (
 	attrWrap
 )
 
+const MaxLen = 1000
+
 const (
 	cursorDefault = 1 << iota
 	cursorWrapNext
@@ -166,7 +168,10 @@ func (t *State) AnsiRow(y int) string {
 
 	var cell *Glyph
 	var builder strings.Builder
-	builder.Grow(1000)
+
+	// if we trip this max len, it just means the builder will have to dynamically allocate, it's not so bad,
+	// plus 1000 chars is pretty wide, so it's unlikely to hit that limit
+	builder.Grow(MaxLen)
 
 	for x := 0; x < t.cols; x++ {
 		// eliminate the copying of the glyph, this really slows down the render
