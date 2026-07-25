@@ -177,8 +177,6 @@ func (t *State) AnsiRow(y int) string {
 		// eliminate the copying of the glyph, this really slows down the render
 		cell = &t.lines[y][x]
 
-		bg = cell.BG
-
 		if ovrFg, ok := t.colorOverride[cell.FG]; ok {
 			fg = ovrFg
 		} else {
