@@ -1,0 +1,39 @@
+name: perform CI release workflow
+permissions:
+  # the write permission is necessary to create the base tag, which reflects the repo state
+  # prior to any state finalization, even after merge, the pre-merge commit point needs to be known
+  # in order to see which items need post-merge steps based on prior changes
+  contents: write
+  checks: read
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  continuous-integration:
+    name: continuous integration
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: exadrift/github-actions/is-default@is-default-v1
+        id: is-default
+
+      - uses: exadrift/github-actions/versioning@notify_file_not_exist
+        id: versioning
+
+      - name: perform lint check
+        run: make lint-check
+
+      - name: perform tests
+        run: make test
+
+      - if: ${{ steps.is-default.outputs.is-default == 'true' }}
+        uses: exadrift/github-actions/release@release-v1
+        with:
+          tags: ${{ steps.versioning.outputs.version }}
+          description: release of vt10x

@@ -380,9 +380,10 @@ func (t *State) clear(x0, y0, x1, y1 int) {
 	}
 }
 
-func (t *State) clearAll() {
-	t.clear(0, 0, t.cols-1, t.rows-1)
-}
+// TODO: not used at present
+// func (t *State) clearAll() {
+// 	t.clear(0, 0, t.cols-1, t.rows-1)
+// }
 
 func (t *State) moveAbsTo(x, y int) {
 	if t.cur.State&cursorOrigin != 0 {
@@ -506,6 +507,7 @@ func (t *State) setMode(priv bool, set bool, args []int) {
 				t.modMode(set, ModeReverse)
 				if mode != t.mode {
 					// TODO: redraw
+					return
 				}
 			case 6: // DECOM - origin
 				if set {
@@ -526,7 +528,8 @@ func (t *State) setMode(priv bool, set bool, args []int) {
 				19, // DECPEX - printer extent
 				42, // DECNRCM - national characters
 				12: // att610 - start blinking cursor
-				break
+				// TODO: this break was here, comment it out for now
+				// break
 			case 25: // DECTCEM - text cursor enable mode
 				t.modMode(!set, ModeHide)
 			case 9: // X10 mouse compatibility mode
