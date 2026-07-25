@@ -81,6 +81,7 @@ func (t *State) handleSTR() {
 			} else if err := t.setColorName(int(DefaultFG), p); err != nil {
 				t.logf("invalid foreground color: %s\n", maybe(p))
 			} else {
+				return
 				// TODO: redraw
 			}
 		case 11:
@@ -96,6 +97,7 @@ func (t *State) handleSTR() {
 				t.logf("invalid cursor color: %s\n", maybe(p))
 			} else {
 				// TODO: redraw
+				return
 			}
 		// case 12:
 		// if len(s.args) < 2 {
@@ -127,11 +129,12 @@ func (t *State) handleSTR() {
 			if p != nil && *p == "?" { // report
 				t.osc4ColorResponse(j)
 			} else if err := t.setColorName(j, p); err != nil {
-				if !(d == 104 && len(s.args) <= 1) {
+				if d != 104 || len(s.args) > 1 {
 					t.logf("invalid color j=%d, p=%s\n", j, maybe(p))
 				}
 			} else {
 				// TODO: redraw
+				return
 			}
 		default:
 			t.logf("unknown OSC command %d\n", d)
@@ -185,7 +188,7 @@ func (t *State) oscColorResponse(j, num int) {
 	}
 
 	r, g, b := rgb(j)
-	t.w.Write([]byte(fmt.Sprintf("\033]%d;rgb:%02x%02x/%02x%02x/%02x%02x\007", num, r, r, g, g, b, b)))
+	_, _ = fmt.Fprintf(t.w, "\033]%d;rgb:%02x%02x/%02x%02x/%02x%02x\007", num, r, r, g, g, b, b)
 }
 
 func (t *State) osc4ColorResponse(j int) {
@@ -200,7 +203,7 @@ func (t *State) osc4ColorResponse(j int) {
 	}
 
 	r, g, b := rgb(j)
-	t.w.Write([]byte(fmt.Sprintf("\033]4;%d;rgb:%02x%02x/%02x%02x/%02x%02x\007", j, r, r, g, g, b, b)))
+	_, _ = fmt.Fprintf(t.w, "\033]4;%d;rgb:%02x%02x/%02x%02x/%02x%02x\007", j, r, r, g, g, b, b)
 }
 
 func rgb(j int) (r, g, b int) {

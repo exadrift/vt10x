@@ -79,6 +79,7 @@ func (t *State) handleCSI() {
 		t.moveTo(t.cur.X, t.cur.Y+c.maxarg(0, 1))
 	case 'c': // DA - device attributes
 		if c.arg(0, 0) == 0 {
+			return
 			// TODO: write vt102 id
 		}
 	case 'C', 'a': // CUF, HPR - cursor <n> forward
@@ -166,9 +167,9 @@ func (t *State) handleCSI() {
 	case 'n':
 		switch c.arg(0, 0) {
 		case 5: // DSR - device status report
-			t.w.Write([]byte("\033[0n"))
+			_, _ = t.w.Write([]byte("\033[0n"))
 		case 6: // CPR - cursor position report
-			t.w.Write([]byte(fmt.Sprintf("\033[%d;%dR", t.cur.Y+1, t.cur.X+1)))
+			_, _ = fmt.Fprintf(t.w, "\033[%d;%dR", t.cur.Y+1, t.cur.X+1)
 		}
 	case 'r': // DECSTBM - set scrolling region
 		if c.priv {
