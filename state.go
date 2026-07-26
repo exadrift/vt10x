@@ -160,49 +160,53 @@ func (t *State) Cell(x, y int) Glyph {
 	return cell
 }
 
-// AnsiRow returns an ANSI string representing the row at position y
-func (t *State) AnsiRow(y int) string {
-	// scan the glyphs and produce a single ANSI string
+// AnsiRows returns the contents as a list of ANSI strings
+func (t *State) AnsiRows() []string {
+	var retRows = make([]string, t.rows)
 	var fg, bg Color
 	var prevFg, prevBg Color
 
 	var cell *Glyph
 	var builder strings.Builder
 
-	// if we trip this max len, it just means the builder will have to dynamically allocate, it's not so bad,
-	// plus 1000 chars is pretty wide, so it's unlikely to hit that limit
-	builder.Grow(MaxLen)
+	for y := 0; y < t.rows; y++ {
+		// if we trip this max len, it just means the builder will have to dynamically allocate, it's not so bad,
+		// plus 1000 chars is pretty wide, so it's unlikely to hit that limit
+		builder.Grow(MaxLen)
+		for x := 0; x < t.cols; x++ {
+			// eliminate the copying of the glyph, this really slows down the render
+			cell = &t.lines[y][x]
 
-	for x := 0; x < t.cols; x++ {
-		// eliminate the copying of the glyph, this really slows down the render
-		cell = &t.lines[y][x]
+			if ovrFg, ok := t.colorOverride[cell.FG]; ok {
+				fg = ovrFg
+			} else {
+				fg = cell.FG
+			}
 
-		if ovrFg, ok := t.colorOverride[cell.FG]; ok {
-			fg = ovrFg
-		} else {
-			fg = cell.FG
+			if ovrBg, ok := t.colorOverride[cell.BG]; ok {
+				bg = ovrBg
+			} else {
+				bg = cell.BG
+			}
+
+			if prevFg != fg {
+				fmt.Fprintf(&builder, "\x1b[%dm", 30+ansiColorMap[fg])
+				prevFg = fg
+			}
+			if prevBg != bg {
+				fmt.Fprintf(&builder, "\x1b[%dm", 40+ansiColorMap[bg])
+				prevBg = bg
+			}
+
+			builder.WriteRune(cell.Char)
 		}
+		builder.WriteString(AnsiReset)
+		retRows[y] = builder.String()
 
-		if ovrBg, ok := t.colorOverride[cell.BG]; ok {
-			bg = ovrBg
-		} else {
-			bg = cell.BG
-		}
-
-		if prevFg != fg {
-			fmt.Fprintf(&builder, "\x1b[%dm", 30+ansiColorMap[fg])
-			prevFg = fg
-		}
-		if prevBg != bg {
-			fmt.Fprintf(&builder, "\x1b[%dm", 40+ansiColorMap[bg])
-			prevBg = bg
-		}
-
-		builder.WriteRune(cell.Char)
+		builder.Reset()
 	}
-	builder.WriteString(AnsiReset)
 
-	return builder.String()
+	return retRows
 }
 
 // Cursor returns the current position of the cursor.
