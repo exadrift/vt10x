@@ -1,8 +1,10 @@
 package vt10x
 
 import (
+	"fmt"
 	"io"
 	"log"
+	"strings"
 	"sync"
 )
 
@@ -19,6 +21,8 @@ const (
 	attrBlink
 	attrWrap
 )
+
+const MaxLen = 1000
 
 const (
 	cursorDefault = 1 << iota
@@ -154,6 +158,55 @@ func (t *State) Cell(x, y int) Glyph {
 		cell.BG = bg
 	}
 	return cell
+}
+
+// AnsiRows returns the contents as a list of ANSI strings
+func (t *State) AnsiRows() []string {
+	var retRows = make([]string, t.rows)
+	var fg, bg Color
+	var prevFg, prevBg Color
+
+	var cell *Glyph
+	var builder strings.Builder
+
+	for y := 0; y < t.rows; y++ {
+		// if we trip this max len, it just means the builder will have to dynamically allocate, it's not so bad,
+		// plus 1000 chars is pretty wide, so it's unlikely to hit that limit
+		builder.Grow(MaxLen)
+		for x := 0; x < t.cols; x++ {
+			// eliminate the copying of the glyph, this really slows down the render
+			cell = &t.lines[y][x]
+
+			if ovrFg, ok := t.colorOverride[cell.FG]; ok {
+				fg = ovrFg
+			} else {
+				fg = cell.FG
+			}
+
+			if ovrBg, ok := t.colorOverride[cell.BG]; ok {
+				bg = ovrBg
+			} else {
+				bg = cell.BG
+			}
+
+			if prevFg != fg {
+				fmt.Fprintf(&builder, "\x1b[%dm", 30+ansiColorMap[fg])
+				prevFg = fg
+			}
+			if prevBg != bg {
+				fmt.Fprintf(&builder, "\x1b[%dm", 40+ansiColorMap[bg])
+				prevBg = bg
+			}
+
+			builder.WriteRune(cell.Char)
+		}
+		builder.WriteString(AnsiReset)
+		retRows[y] = builder.String()
+
+		builder.Reset()
+	}
+
+	return retRows
 }
 
 // Cursor returns the current position of the cursor.

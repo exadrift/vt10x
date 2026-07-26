@@ -41,6 +41,9 @@ type View interface {
 	// background color at position (x, y) relative to the top left of the terminal.
 	Cell(x, y int) Glyph
 
+	// AnsiRows returns the contents as a list of ANSI strings
+	AnsiRows() []string
+
 	// Cursor returns the current position of the cursor.
 	Cursor() Cursor
 

@@ -20,6 +20,29 @@ const (
 	White
 )
 
+var ansiColorMap = map[Color]int{
+	Black:        0,
+	Red:          1,
+	Green:        2,
+	Yellow:       3,
+	Blue:         4,
+	Magenta:      5,
+	Cyan:         6,
+	LightGrey:    7,
+	DarkGrey:     60,
+	LightRed:     61,
+	LightGreen:   62,
+	LightYellow:  63,
+	LightBlue:    64,
+	LightMagenta: 65,
+	LightCyan:    66,
+	White:        67,
+}
+
+const (
+	AnsiReset string = "\x1b[0m"
+)
+
 // Default colors are potentially distinct to allow for special behavior.
 // For example, a transparent background. Otherwise, the simple case is to
 // map default colors to another color.
