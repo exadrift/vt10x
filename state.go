@@ -164,10 +164,12 @@ func (t *State) Cell(x, y int) Glyph {
 func (t *State) AnsiRows() []string {
 	var retRows = make([]string, t.rows)
 	var fg, bg Color
-	var prevFg, prevBg Color
 
 	var cell *Glyph
 	var builder strings.Builder
+
+	prevFg := DefaultFG
+	prevBg := DefaultBG
 
 	for y := 0; y < t.rows; y++ {
 		// if we trip this max len, it just means the builder will have to dynamically allocate, it's not so bad,
@@ -202,7 +204,6 @@ func (t *State) AnsiRows() []string {
 		}
 		builder.WriteString(AnsiReset)
 		retRows[y] = builder.String()
-
 		builder.Reset()
 	}
 
@@ -483,20 +484,6 @@ func (t *State) setScroll(top, bottom int) {
 	}
 	t.top = top
 	t.bottom = bottom
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 func clamp(val, min, max int) int {
