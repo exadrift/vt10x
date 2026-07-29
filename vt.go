@@ -46,6 +46,10 @@ type View interface {
 	// AnsiRows returns the contents as a list of ANSI strings
 	AnsiRows() []string
 
+	// History returns a viewport sized array of lines representing the scrollback history, starting from offset.
+	// An offset of zero represents the current moment in time
+	History(offset int) []string
+
 	// Cursor returns the current position of the cursor.
 	Cursor() Cursor
 

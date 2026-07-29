@@ -108,6 +108,7 @@ type State struct {
 	title         string
 	colorOverride map[Color]Color
 	historyBuffer *ringbuf.RingBuffer[string]
+	historyTarget []string
 }
 
 func newState(w io.Writer, historyLength int) *State {
@@ -323,25 +324,28 @@ var gfxCharTable = [62]rune{
 	'│', '≤', '≥', 'π', '≠', '£', '·', // x - ~
 }
 
-// History returns the history buffer starting from a negative offset point from the present moment.  Since
-// only off screen items are present in the backing history buffer, offset of 0 to 0-t.rows will be collected from the
-// actual terminal buffer.  the historyTarget is a pre-sized target array to avoid unnecessary allocations
-func (t *State) History(offset int, historyTarget []string) {
+// History returns the history buffer starting from a negative offset point from the present moment.  An offset of zero
+// represents the current moment in time, which will represent the last row in the returned array.  The returned array will
+// contain one vertical terminal worth of rows.
+func (t *State) History(offset int) []string {
 	var builder strings.Builder
 	curRow := 0
+	offset = offset - t.rows
 	for i := 0; i < t.rows; i++ {
 		finalOffset := offset + i
 		if finalOffset < -t.rows {
 			// if the offset is beyond t.rows as a negative number, then this comes from the history buffer
-			historyTarget[curRow] = t.historyBuffer.Item(finalOffset + t.rows)
+			t.historyTarget[curRow] = t.historyBuffer.Item(finalOffset + t.rows)
 		} else {
 			prevFg := DefaultFG
 			prevBg := DefaultBG
-			historyTarget[curRow] = t.AnsiRow(&builder, t.rows+offset-1, &prevFg, &prevBg)
+			t.historyTarget[curRow] = t.AnsiRow(&builder, t.rows+offset-1, &prevFg, &prevBg)
 		}
 
 		curRow++
 	}
+
+	return t.historyTarget
 }
 
 func (t *State) setChar(c rune, attr *Glyph, x, y int) {
@@ -442,6 +446,10 @@ func (t *State) resize(cols, rows int) bool {
 			t.clear(0, minrows, cols-1, rows-1)
 		}
 		t.swapScreen()
+	}
+	if slide > 0 {
+		// this is where a render of the history buffer gets but
+		t.historyTarget = make([]string, t.rows)
 	}
 	return slide > 0
 }
