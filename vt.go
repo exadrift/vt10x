@@ -6,6 +6,8 @@ import (
 	"io"
 )
 
+const DefaultHistoryBufferSize int = 10000
+
 // Terminal represents the virtual terminal emulator.
 type Terminal interface {
 	// View displays the virtual terminal.
@@ -60,8 +62,9 @@ type View interface {
 type TerminalOption func(*TerminalInfo)
 
 type TerminalInfo struct {
-	w          io.Writer
-	cols, rows int
+	w             io.Writer
+	cols, rows    int
+	historyLength int
 }
 
 func WithWriter(w io.Writer) TerminalOption {
@@ -77,12 +80,19 @@ func WithSize(cols, rows int) TerminalOption {
 	}
 }
 
+func WithHistoryBuffer(historyLength int) TerminalOption {
+	return func(info *TerminalInfo) {
+		info.historyLength = historyLength
+	}
+}
+
 // New returns a new virtual terminal emulator.
 func New(opts ...TerminalOption) Terminal {
 	info := TerminalInfo{
-		w:    io.Discard,
-		cols: 80,
-		rows: 24,
+		w:             io.Discard,
+		cols:          80,
+		rows:          24,
+		historyLength: DefaultHistoryBufferSize,
 	}
 	for _, opt := range opts {
 		opt(&info)
