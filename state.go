@@ -339,7 +339,7 @@ func (t *State) History(offset int) []string {
 		} else {
 			prevFg := DefaultFG
 			prevBg := DefaultBG
-			t.historyTarget[curRow] = t.AnsiRow(&builder, t.rows+offset-1, &prevFg, &prevBg)
+			t.historyTarget[curRow] = t.AnsiRow(&builder, t.rows+finalOffset, &prevFg, &prevBg)
 		}
 
 		curRow++
@@ -447,10 +447,8 @@ func (t *State) resize(cols, rows int) bool {
 		}
 		t.swapScreen()
 	}
-	if slide > 0 {
-		// this is where a render of the history buffer gets but
-		t.historyTarget = make([]string, t.rows)
-	}
+	// this is where a render of the history buffer gets but
+	t.historyTarget = make([]string, t.rows)
 	return slide > 0
 }
 
