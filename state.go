@@ -348,6 +348,11 @@ func (t *State) History(offset int) []string {
 	return t.historyTarget
 }
 
+// HistoryBufferLength returns the length of the history buffer, including the active termninal height
+func (t *State) HistoryBufferLength() int {
+	return t.rows + t.historyBuffer.Length()
+}
+
 func (t *State) setChar(c rune, attr *Glyph, x, y int) {
 	if attr.Mode&attrGfx != 0 {
 		if c >= 0x41 && c <= 0x7e && gfxCharTable[c-0x41] != 0 {

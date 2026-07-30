@@ -50,6 +50,9 @@ type View interface {
 	// An offset of zero represents the current moment in time
 	History(offset int) []string
 
+	// HistoryBufferLength returns the length of the history buffer, including the active termninal height
+	HistoryBufferLength() int
+
 	// Cursor returns the current position of the cursor.
 	Cursor() Cursor
 
