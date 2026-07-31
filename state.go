@@ -295,7 +295,8 @@ func (t *State) newline(firstCol bool) {
 	y := t.cur.Y
 	if y == t.bottom {
 		// put the last row of the screen buffer in the scrollback
-		var prevFg, prevBg Color
+		prevFg := DefaultFG
+		prevBg := DefaultBG
 		t.historyBuffer.Push(t.AnsiRow(&strings.Builder{}, 0, &prevFg, &prevBg))
 
 		cur := t.cur
