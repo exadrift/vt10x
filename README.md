@@ -6,3 +6,7 @@ Package vt10x is a vt10x terminal emulation backend, influenced
 largely by st, rxvt, xterm, and iTerm as reference. Use it for terminal
 muxing, a terminal emulation frontend, or wherever else you need
 terminal emulation.
+
+Original vt10x interface has been extended to support the following:
+- ANSI line renderer (can return full terminal buffer as ANSI escaped strings for direct rendering to external terminal emulator)
+- Maintain history buffer for supporting a scroll-back window
