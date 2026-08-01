@@ -1,3 +1,5 @@
+# v0.0.5
+- added general usage instructions to the README.md
 # v0.0.4
 - add scrollback and history buffer render method
 # v0.0.3
