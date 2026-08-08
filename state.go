@@ -194,24 +194,11 @@ func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, row
 		fg = cell.FG
 		bg = cell.BG
 
-		// disable color override, this seems like a waste of CPU
-		// if ovrFg, ok := t.colorOverride[cell.FG]; ok {
-		// 	fg = ovrFg
-		// } else {
-		// 	fg = cell.FG
-		// }
-
-		// if ovrBg, ok := t.colorOverride[cell.BG]; ok {
-		// 	bg = ovrBg
-		// } else {
-		// 	bg = cell.BG
-		// }
-
-		if *prevFg != fg {
+		if *prevFg != fg && fg != DefaultFG {
 			fmt.Fprint(builder, palette256Color[int(fg)].AnsiFg)
 			*prevFg = fg
 		}
-		if *prevBg != bg {
+		if *prevBg != bg && bg != DefaultBG {
 			fmt.Fprint(builder, palette256Color[int(bg)].AnsiBg)
 			*prevBg = bg
 		}
