@@ -208,11 +208,11 @@ func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, row
 		// }
 
 		if *prevFg != fg {
-			fmt.Fprint(builder, palette256Color[fg].AnsiFg)
+			fmt.Fprint(builder, palette256Color[int(fg)].AnsiFg)
 			*prevFg = fg
 		}
 		if *prevBg != bg {
-			fmt.Fprint(builder, palette256Color[bg].AnsiBg)
+			fmt.Fprint(builder, palette256Color[int(bg)].AnsiBg)
 			*prevBg = bg
 		}
 
