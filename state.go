@@ -191,6 +191,8 @@ func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, row
 	for x := range cols {
 		// eliminate the copying of the glyph, this really slows down the render
 		cell = &line[x]
+		fg = cell.FG
+		bg = cell.BG
 
 		// disable color override, this seems like a waste of CPU
 		// if ovrFg, ok := t.colorOverride[cell.FG]; ok {
@@ -210,7 +212,7 @@ func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, row
 			*prevFg = fg
 		}
 		if *prevBg != bg {
-			fmt.Fprint(builder, palette256Color[fg].AnsiBg)
+			fmt.Fprint(builder, palette256Color[bg].AnsiBg)
 			*prevBg = bg
 		}
 
