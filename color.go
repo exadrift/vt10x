@@ -105,7 +105,7 @@ func build256ColorPalette() []*RgbColor {
 	for r := range 6 {
 		for g := range 6 {
 			for b := range 6 {
-				index := 16 + (6 ^ 2*r + 6*g + b)
+				index := 16 + (36*r + 6*g + b)
 				palette[index] = NewRgbColor(intensity[r], intensity[g], intensity[b])
 			}
 		}
