@@ -176,30 +176,34 @@ func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, row
 	var fg, bg Color
 	var cell *Glyph
 	builder.Grow(MaxLen)
+	var cols int
 
 	var line line
 	switch bufferSource {
 	case BufferSourceHistory:
 		line = t.historyBuffer.Item(rowNum)
+		cols = len(line)
 	case BufferSourceTerminal:
 		line = t.lines[rowNum]
+		cols = t.cols
 	}
 
-	for x := 0; x < t.cols; x++ {
+	for x := range cols {
 		// eliminate the copying of the glyph, this really slows down the render
 		cell = &line[x]
 
-		if ovrFg, ok := t.colorOverride[cell.FG]; ok {
-			fg = ovrFg
-		} else {
-			fg = cell.FG
-		}
+		// disable color override, this seems like a waste of CPU
+		// if ovrFg, ok := t.colorOverride[cell.FG]; ok {
+		// 	fg = ovrFg
+		// } else {
+		// 	fg = cell.FG
+		// }
 
-		if ovrBg, ok := t.colorOverride[cell.BG]; ok {
-			bg = ovrBg
-		} else {
-			bg = cell.BG
-		}
+		// if ovrBg, ok := t.colorOverride[cell.BG]; ok {
+		// 	bg = ovrBg
+		// } else {
+		// 	bg = cell.BG
+		// }
 
 		if *prevFg != fg {
 			fmt.Fprint(builder, palette256Color[fg].AnsiFg)
@@ -310,8 +314,8 @@ func (t *State) putTab(forward bool) {
 func (t *State) newline(firstCol bool) {
 	y := t.cur.Y
 	if y == t.bottom {
-		// put the last row of the screen buffer in the scrollback
-		t.historyBuffer.Push(t.lines[y][:])
+		// put the last row of the screen buffer in the scrollback, copying only the current terminal width
+		t.historyBuffer.Push(t.lines[y][:t.cols])
 
 		cur := t.cur
 		t.cur = t.defaultCursor()
