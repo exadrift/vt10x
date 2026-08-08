@@ -59,6 +59,13 @@ const (
 	ModeMouseMask = ModeMouseButton | ModeMouseMotion | ModeMouseX10 | ModeMouseMany
 )
 
+type BufferSource int
+
+const (
+	BufferSourceHistory BufferSource = iota
+	BufferSourceTerminal
+)
+
 // ChangeFlag represents possible state changes of the terminal.
 type ChangeFlag uint32
 
@@ -107,7 +114,7 @@ type State struct {
 	tabs          []bool
 	title         string
 	colorOverride map[Color]Color
-	historyBuffer *ringbuf.RingBuffer[string]
+	historyBuffer *ringbuf.RingBuffer[line]
 	historyTarget []string
 }
 
@@ -115,7 +122,7 @@ func newState(w io.Writer, historyLength int) *State {
 	return &State{
 		w:             w,
 		colorOverride: make(map[Color]Color),
-		historyBuffer: ringbuf.New[string](historyLength),
+		historyBuffer: ringbuf.New[line](historyLength),
 	}
 }
 
@@ -165,13 +172,22 @@ func (t *State) Cell(x, y int) Glyph {
 	return cell
 }
 
-func (t *State) AnsiRow(builder *strings.Builder, rowNum int, prevFg *Color, prevBg *Color) string {
+func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, rowNum int, prevFg *Color, prevBg *Color) string {
 	var fg, bg Color
 	var cell *Glyph
 	builder.Grow(MaxLen)
+
+	var line line
+	switch bufferSource {
+	case BufferSourceHistory:
+		line = t.historyBuffer.Item(rowNum)
+	case BufferSourceTerminal:
+		line = t.lines[rowNum]
+	}
+
 	for x := 0; x < t.cols; x++ {
 		// eliminate the copying of the glyph, this really slows down the render
-		cell = &t.lines[rowNum][x]
+		cell = &line[x]
 
 		if ovrFg, ok := t.colorOverride[cell.FG]; ok {
 			fg = ovrFg
@@ -186,11 +202,11 @@ func (t *State) AnsiRow(builder *strings.Builder, rowNum int, prevFg *Color, pre
 		}
 
 		if *prevFg != fg {
-			fmt.Fprintf(builder, "\x1b[%dm", 30+ansiColorMap[fg])
+			fmt.Fprint(builder, palette256Color[fg].AnsiFg)
 			*prevFg = fg
 		}
 		if *prevBg != bg {
-			fmt.Fprintf(builder, "\x1b[%dm", 40+ansiColorMap[bg])
+			fmt.Fprint(builder, palette256Color[fg].AnsiBg)
 			*prevBg = bg
 		}
 
@@ -213,7 +229,7 @@ func (t *State) AnsiRows() []string {
 	prevBg := DefaultBG
 
 	for y := 0; y < t.rows; y++ {
-		retRows[y] = t.AnsiRow(&builder, y, &prevFg, &prevBg)
+		retRows[y] = t.AnsiRow(&builder, BufferSourceTerminal, y, &prevFg, &prevBg)
 	}
 
 	return retRows
@@ -295,9 +311,7 @@ func (t *State) newline(firstCol bool) {
 	y := t.cur.Y
 	if y == t.bottom {
 		// put the last row of the screen buffer in the scrollback
-		prevFg := DefaultFG
-		prevBg := DefaultBG
-		t.historyBuffer.Push(t.AnsiRow(&strings.Builder{}, 0, &prevFg, &prevBg))
+		t.historyBuffer.Push(t.lines[y][:])
 
 		cur := t.cur
 		t.cur = t.defaultCursor()
@@ -334,14 +348,17 @@ func (t *State) History(offset int) []string {
 	offset = offset - t.rows
 	for i := 0; i < t.rows; i++ {
 		finalOffset := offset + i
+		var source BufferSource
+		prevFg := DefaultFG
+		prevBg := DefaultBG
+
 		if finalOffset < -t.rows {
 			// if the offset is beyond t.rows as a negative number, then this comes from the history buffer
-			t.historyTarget[curRow] = t.historyBuffer.Item(finalOffset + t.rows)
+			source = BufferSourceHistory
 		} else {
-			prevFg := DefaultFG
-			prevBg := DefaultBG
-			t.historyTarget[curRow] = t.AnsiRow(&builder, t.rows+finalOffset, &prevFg, &prevBg)
+			source = BufferSourceTerminal
 		}
+		t.historyTarget[curRow] = t.AnsiRow(&builder, source, t.rows+finalOffset, &prevFg, &prevBg)
 
 		curRow++
 	}
