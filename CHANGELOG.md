@@ -1,3 +1,5 @@
+# v0.0.7
+- fixed scrollback logic, added tests
 # v0.0.6
 - support RGB color
 # v0.0.5

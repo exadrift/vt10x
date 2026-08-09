@@ -320,7 +320,9 @@ func (t *State) newline(firstCol bool) {
 	y := t.cur.Y
 	if y == t.bottom {
 		// put the last row of the screen buffer in the scrollback, copying only the current terminal width
-		t.historyBuffer.Push(t.lines[y][:t.cols])
+		lineCopy := make([]Glyph, t.cols)
+		copy(lineCopy, t.lines[0])
+		t.historyBuffer.Push(lineCopy)
 
 		cur := t.cur
 		t.cur = t.defaultCursor()
@@ -353,23 +355,29 @@ var gfxCharTable = [62]rune{
 // contain one vertical terminal worth of rows.
 func (t *State) History(offset int) []string {
 	var builder strings.Builder
-	curRow := 0
-	offset = offset - t.rows
+	offset -= t.rows
+
+	// offset marks the top of the buffer
+	// if 0, it's the first position in the terminal buffer
+	// if -1, it's the last pushed position in the history buffer
+	// positive numbers don't make sense
+
+	var virtualRow int
 	for i := 0; i < t.rows; i++ {
 		finalOffset := offset + i
 		var source BufferSource
 		prevFg := DefaultFG
 		prevBg := DefaultBG
-
-		if finalOffset < -t.rows {
+		virtualRow = finalOffset + t.rows
+		if virtualRow >= 0 {
+			source = BufferSourceTerminal
+			virtualRow = finalOffset + t.rows
+		} else {
 			// if the offset is beyond t.rows as a negative number, then this comes from the history buffer
 			source = BufferSourceHistory
-		} else {
-			source = BufferSourceTerminal
+			virtualRow++
 		}
-		t.historyTarget[curRow] = t.AnsiRow(&builder, source, t.rows+finalOffset, &prevFg, &prevBg)
-
-		curRow++
+		t.historyTarget[i] = t.AnsiRow(&builder, source, virtualRow, &prevFg, &prevBg)
 	}
 
 	return t.historyTarget
