@@ -1,3 +1,5 @@
+# v0.0.6
+- support RGB color
 # v0.0.5
 - added general usage instructions to the README.md
 # v0.0.4

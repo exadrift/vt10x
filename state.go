@@ -59,6 +59,13 @@ const (
 	ModeMouseMask = ModeMouseButton | ModeMouseMotion | ModeMouseX10 | ModeMouseMany
 )
 
+type BufferSource int
+
+const (
+	BufferSourceHistory BufferSource = iota
+	BufferSourceTerminal
+)
+
 // ChangeFlag represents possible state changes of the terminal.
 type ChangeFlag uint32
 
@@ -81,6 +88,8 @@ type Cursor struct {
 	X, Y  int
 	State uint8
 }
+
+var spaceRune = rune(' ')
 
 type parseState func(c rune)
 
@@ -107,7 +116,7 @@ type State struct {
 	tabs          []bool
 	title         string
 	colorOverride map[Color]Color
-	historyBuffer *ringbuf.RingBuffer[string]
+	historyBuffer *ringbuf.RingBuffer[line]
 	historyTarget []string
 }
 
@@ -115,7 +124,7 @@ func newState(w io.Writer, historyLength int) *State {
 	return &State{
 		w:             w,
 		colorOverride: make(map[Color]Color),
-		historyBuffer: ringbuf.New[string](historyLength),
+		historyBuffer: ringbuf.New[line](historyLength),
 	}
 }
 
@@ -152,8 +161,15 @@ func (t *State) Unlock() {
 
 // Cell returns the glyph containing the character code, foreground color, and
 // background color at position (x, y) relative to the top left of the terminal.
+// When y is a negative number, it will be pulled from the history buffer a -y rows
+// from the current row.
 func (t *State) Cell(x, y int) Glyph {
-	cell := t.lines[y][x]
+	var cell Glyph
+	if y < 0 {
+		cell = t.historyBuffer.Item(y)[x]
+	} else {
+		cell = t.lines[y][x]
+	}
 	fg, ok := t.colorOverride[cell.FG]
 	if ok {
 		cell.FG = fg
@@ -165,32 +181,41 @@ func (t *State) Cell(x, y int) Glyph {
 	return cell
 }
 
-func (t *State) AnsiRow(builder *strings.Builder, rowNum int, prevFg *Color, prevBg *Color) string {
+func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, rowNum int, prevFg *Color, prevBg *Color) string {
 	var fg, bg Color
 	var cell *Glyph
 	builder.Grow(MaxLen)
-	for x := 0; x < t.cols; x++ {
+	var cols int
+
+	var line line
+	switch bufferSource {
+	case BufferSourceHistory:
+		line = t.historyBuffer.Item(rowNum)
+		cols = len(line)
+	case BufferSourceTerminal:
+		line = t.lines[rowNum]
+		cols = t.cols
+	}
+
+	termWidth := t.cols
+
+	for x := range termWidth {
+		if x > cols-1 {
+			builder.WriteRune(spaceRune)
+			continue
+		}
+
 		// eliminate the copying of the glyph, this really slows down the render
-		cell = &t.lines[rowNum][x]
+		cell = &line[x]
+		fg = cell.FG
+		bg = cell.BG
 
-		if ovrFg, ok := t.colorOverride[cell.FG]; ok {
-			fg = ovrFg
-		} else {
-			fg = cell.FG
-		}
-
-		if ovrBg, ok := t.colorOverride[cell.BG]; ok {
-			bg = ovrBg
-		} else {
-			bg = cell.BG
-		}
-
-		if *prevFg != fg {
-			fmt.Fprintf(builder, "\x1b[%dm", 30+ansiColorMap[fg])
+		if *prevFg != fg && fg != DefaultFG {
+			fmt.Fprint(builder, palette256Color[int(fg)].AnsiFg)
 			*prevFg = fg
 		}
-		if *prevBg != bg {
-			fmt.Fprintf(builder, "\x1b[%dm", 40+ansiColorMap[bg])
+		if *prevBg != bg && bg != DefaultBG {
+			fmt.Fprint(builder, palette256Color[int(bg)].AnsiBg)
 			*prevBg = bg
 		}
 
@@ -213,7 +238,7 @@ func (t *State) AnsiRows() []string {
 	prevBg := DefaultBG
 
 	for y := 0; y < t.rows; y++ {
-		retRows[y] = t.AnsiRow(&builder, y, &prevFg, &prevBg)
+		retRows[y] = t.AnsiRow(&builder, BufferSourceTerminal, y, &prevFg, &prevBg)
 	}
 
 	return retRows
@@ -294,10 +319,8 @@ func (t *State) putTab(forward bool) {
 func (t *State) newline(firstCol bool) {
 	y := t.cur.Y
 	if y == t.bottom {
-		// put the last row of the screen buffer in the scrollback
-		prevFg := DefaultFG
-		prevBg := DefaultBG
-		t.historyBuffer.Push(t.AnsiRow(&strings.Builder{}, 0, &prevFg, &prevBg))
+		// put the last row of the screen buffer in the scrollback, copying only the current terminal width
+		t.historyBuffer.Push(t.lines[y][:t.cols])
 
 		cur := t.cur
 		t.cur = t.defaultCursor()
@@ -334,14 +357,17 @@ func (t *State) History(offset int) []string {
 	offset = offset - t.rows
 	for i := 0; i < t.rows; i++ {
 		finalOffset := offset + i
+		var source BufferSource
+		prevFg := DefaultFG
+		prevBg := DefaultBG
+
 		if finalOffset < -t.rows {
 			// if the offset is beyond t.rows as a negative number, then this comes from the history buffer
-			t.historyTarget[curRow] = t.historyBuffer.Item(finalOffset + t.rows)
+			source = BufferSourceHistory
 		} else {
-			prevFg := DefaultFG
-			prevBg := DefaultBG
-			t.historyTarget[curRow] = t.AnsiRow(&builder, t.rows+finalOffset, &prevFg, &prevBg)
+			source = BufferSourceTerminal
 		}
+		t.historyTarget[curRow] = t.AnsiRow(&builder, source, t.rows+finalOffset, &prevFg, &prevBg)
 
 		curRow++
 	}
