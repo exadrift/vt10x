@@ -89,6 +89,8 @@ type Cursor struct {
 	State uint8
 }
 
+var spaceRune = rune(' ')
+
 type parseState func(c rune)
 
 // State represents the terminal emulation state. Use Lock/Unlock
@@ -159,8 +161,15 @@ func (t *State) Unlock() {
 
 // Cell returns the glyph containing the character code, foreground color, and
 // background color at position (x, y) relative to the top left of the terminal.
+// When y is a negative number, it will be pulled from the history buffer a -y rows
+// from the current row.
 func (t *State) Cell(x, y int) Glyph {
-	cell := t.lines[y][x]
+	var cell Glyph
+	if y < 0 {
+		cell = t.historyBuffer.Item(y)[x]
+	} else {
+		cell = t.lines[y][x]
+	}
 	fg, ok := t.colorOverride[cell.FG]
 	if ok {
 		cell.FG = fg
@@ -188,7 +197,14 @@ func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, row
 		cols = t.cols
 	}
 
-	for x := range cols {
+	termWidth := t.cols
+
+	for x := range termWidth {
+		if x > cols-1 {
+			builder.WriteRune(spaceRune)
+			continue
+		}
+
 		// eliminate the copying of the glyph, this really slows down the render
 		cell = &line[x]
 		fg = cell.FG
