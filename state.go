@@ -210,12 +210,20 @@ func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, row
 		fg = cell.FG
 		bg = cell.BG
 
-		if *prevFg != fg && fg != DefaultFG {
-			fmt.Fprint(builder, palette256Color[int(fg)].AnsiFg)
+		if *prevFg != fg {
+			if fg == DefaultFG {
+				fmt.Fprint(builder, "\x1b[39m")
+			} else {
+				fmt.Fprint(builder, palette256Color[int(fg)].AnsiFg)
+			}
 			*prevFg = fg
 		}
-		if *prevBg != bg && bg != DefaultBG {
-			fmt.Fprint(builder, palette256Color[int(bg)].AnsiBg)
+		if *prevBg != bg {
+			if bg == DefaultBG {
+				fmt.Fprint(builder, "\x1b[49m")
+			} else {
+				fmt.Fprint(builder, palette256Color[int(fg)].AnsiBg)
+			}
 			*prevBg = bg
 		}
 

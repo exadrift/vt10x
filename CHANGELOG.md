@@ -1,3 +1,5 @@
+# v0.0.8
+- fixed color reset
 # v0.0.7
 - fixed scrollback logic, added tests
 # v0.0.6
