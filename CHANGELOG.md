@@ -1,3 +1,5 @@
+# v0.0.9
+- better distinguish between rgb and palette
 # v0.0.8
 - fixed color reset
 # v0.0.7
