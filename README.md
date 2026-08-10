@@ -11,6 +11,7 @@ Original vt10x interface has been extended to support the following:
 - ANSI line renderer (can return full terminal buffer as ANSI escaped strings for direct rendering to external terminal emulator)
 - Maintain history buffer for supporting a scroll-back window
 - Standard 256 color palette
+- Support for RGB ANSI color rendering (rgb fg / gb colors on the cell will always be larger than 255)
 
 ## usage
 
