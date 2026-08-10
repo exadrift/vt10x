@@ -101,4 +101,12 @@ func build256ColorPalette() []*RgbColor {
 	return palette
 }
 
+func ansiRgbFg(red uint32, green uint32, blue uint32) string {
+	return fmt.Sprintf("\x1b[38;2;%d;%d;%dm", red, green, blue)
+}
+
+func ansiRgbBg(red uint32, green uint32, blue uint32) string {
+	return fmt.Sprintf("\x1b[48;2;%d;%d;%dm", red, green, blue)
+}
+
 var palette256Color = build256ColorPalette()

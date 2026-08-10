@@ -214,7 +214,15 @@ func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, row
 			if fg == DefaultFG {
 				fmt.Fprint(builder, "\x1b[39m")
 			} else {
-				fmt.Fprint(builder, palette256Color[int(fg)].AnsiFg)
+				if fg < 256 {
+					fmt.Fprint(builder, palette256Color[int(fg)].AnsiFg)
+				} else {
+					b := uint32((fg & 0x0000FF00) >> 8)
+					g := uint32((fg & 0x00FF0000) >> 16)
+					r := uint32((fg & 0xFF000000) >> 24)
+					fmt.Fprint(builder, ansiRgbFg(r, g, b))
+				}
+
 			}
 			*prevFg = fg
 		}
@@ -222,7 +230,15 @@ func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, row
 			if bg == DefaultBG {
 				fmt.Fprint(builder, "\x1b[49m")
 			} else {
-				fmt.Fprint(builder, palette256Color[int(fg)].AnsiBg)
+				if bg < 256 {
+					fmt.Fprint(builder, palette256Color[int(bg)].AnsiBg)
+				} else {
+					b := uint32((bg & 0x0000FF00) >> 8)
+					g := uint32((bg & 0x00FF0000) >> 16)
+					r := uint32((bg & 0xFF000000) >> 24)
+					fmt.Fprint(builder, ansiRgbBg(r, g, b))
+				}
+
 			}
 			*prevBg = bg
 		}
@@ -778,7 +794,7 @@ func (t *State) setAttr(attr []int) {
 				if !between(r, 0, 255) || !between(g, 0, 255) || !between(b, 0, 255) {
 					t.logf("bad fg rgb color (%d,%d,%d)\n", r, g, b)
 				} else {
-					t.cur.Attr.FG = Color(r<<16 | g<<8 | b)
+					t.cur.Attr.FG = Color(r<<24 | g<<16 | b<<8)
 				}
 			} else {
 				t.logf("gfx attr %d unknown\n", a)
@@ -799,7 +815,7 @@ func (t *State) setAttr(attr []int) {
 				if !between(r, 0, 255) || !between(g, 0, 255) || !between(b, 0, 255) {
 					t.logf("bad bg rgb color (%d,%d,%d)\n", r, g, b)
 				} else {
-					t.cur.Attr.BG = Color(r<<16 | g<<8 | b)
+					t.cur.Attr.BG = Color(r<<24 | g<<16 | b<<8)
 				}
 			} else {
 				t.logf("gfx attr %d unknown\n", a)
