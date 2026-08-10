@@ -233,9 +233,9 @@ func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, row
 				if bg < 256 {
 					fmt.Fprint(builder, palette256Color[int(bg)].AnsiBg)
 				} else {
-					b := uint32((fg & 0x0000FF00) >> 8)
-					g := uint32((fg & 0x00FF0000) >> 16)
-					r := uint32((fg & 0xFF000000) >> 24)
+					b := uint32((bg & 0x0000FF00) >> 8)
+					g := uint32((bg & 0x00FF0000) >> 16)
+					r := uint32((bg & 0xFF000000) >> 24)
 					fmt.Fprint(builder, ansiRgbBg(r, g, b))
 				}
 
