@@ -10,6 +10,7 @@ terminal emulation.
 Original vt10x interface has been extended to support the following:
 - ANSI line renderer (can return full terminal buffer as ANSI escaped strings for direct rendering to external terminal emulator)
 - Maintain history buffer for supporting a scroll-back window
+- Standard 256 color palette
 
 ## usage
 
@@ -110,3 +111,5 @@ for y, row := range rows {
     fmt.Print(row)
 }
 ```
+
+history can also be accessed using the cell interface, where the row index < 0
