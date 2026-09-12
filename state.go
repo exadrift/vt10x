@@ -1,12 +1,12 @@
 package vt10x
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"strings"
 	"sync"
 
+	"github.com/exadrift/go/ansi/style"
 	"github.com/exadrift/go/ringbuf"
 )
 
@@ -117,7 +117,7 @@ type State struct {
 	title         string
 	colorOverride map[Color]Color
 	historyBuffer *ringbuf.RingBuffer[line]
-	historyTarget []string
+	historyTarget []*style.Text
 }
 
 func newState(w io.Writer, historyLength int) *State {
@@ -181,10 +181,11 @@ func (t *State) Cell(x, y int) Glyph {
 	return cell
 }
 
-func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, rowNum int, prevFg *Color, prevBg *Color) string {
+func (t *State) Text(bufferSource BufferSource, rowNum int) *style.Text {
+	var parts []any
 	var fg, bg Color
 	var cell *Glyph
-	builder.Grow(MaxLen)
+	var builder strings.Builder
 	var cols int
 
 	var line line
@@ -196,6 +197,8 @@ func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, row
 		line = t.lines[rowNum]
 		cols = t.cols
 	}
+	prevFg := DefaultFG
+	prevBg := DefaultBG
 
 	termWidth := t.cols
 
@@ -210,59 +213,64 @@ func (t *State) AnsiRow(builder *strings.Builder, bufferSource BufferSource, row
 		fg = cell.FG
 		bg = cell.BG
 
-		if *prevFg != fg {
+		if prevFg != DefaultFG && prevFg != fg {
+			if builder.Len() > 0 {
+				parts = append(parts, builder.String())
+				builder.Reset()
+			}
 			if fg == DefaultFG {
-				fmt.Fprint(builder, "\x1b[39m")
+				parts = append(parts, style.BlackHi.Fg())
 			} else {
 				if fg < 256 {
-					fmt.Fprint(builder, palette256Color[int(fg)].AnsiFg)
+					parts = append(parts, style.GetPaletteColor(uint8(fg)).Fg())
 				} else {
 					b := uint32((fg & 0x0000FF00) >> 8)
 					g := uint32((fg & 0x00FF0000) >> 16)
 					r := uint32((fg & 0xFF000000) >> 24)
-					fmt.Fprint(builder, ansiRgbFg(r, g, b))
+					parts = append(parts, style.FromRgb(r, g, b).Fg())
 				}
 
 			}
-			*prevFg = fg
+			prevFg = fg
 		}
-		if *prevBg != bg {
+		if prevBg != DefaultBG && prevBg != bg {
+			if builder.Len() > 0 {
+				parts = append(parts, builder.String())
+				builder.Reset()
+			}
 			if bg == DefaultBG {
-				fmt.Fprint(builder, "\x1b[49m")
+				parts = append(parts, style.BlackHi.Bg())
 			} else {
 				if bg < 256 {
-					fmt.Fprint(builder, palette256Color[int(bg)].AnsiBg)
+					parts = append(parts, style.GetPaletteColor(uint8(bg)).Bg())
 				} else {
-					b := uint32((bg & 0x0000FF00) >> 8)
-					g := uint32((bg & 0x00FF0000) >> 16)
-					r := uint32((bg & 0xFF000000) >> 24)
-					fmt.Fprint(builder, ansiRgbBg(r, g, b))
+					b := uint32((fg & 0x0000FF00) >> 8)
+					g := uint32((fg & 0x00FF0000) >> 16)
+					r := uint32((fg & 0xFF000000) >> 24)
+					parts = append(parts, style.FromRgb(r, g, b).Bg())
 				}
 
 			}
-			*prevBg = bg
+			prevBg = bg
 		}
 
 		builder.WriteRune(cell.Char)
 	}
-	builder.WriteString(AnsiReset)
-	ret := builder.String()
-	builder.Reset()
+	if builder.Len() > 0 {
+		parts = append(parts, builder.String())
+		builder.Reset()
+	}
+	parts = append(parts, style.StyleReset)
 
-	return ret
+	return style.T(parts...)
 }
 
-// AnsiRows returns the contents as a list of ANSI strings
-func (t *State) AnsiRows() []string {
-	var retRows = make([]string, t.rows)
-
-	var builder strings.Builder
-
-	prevFg := DefaultFG
-	prevBg := DefaultBG
+// TextRows returns the contents as a list of ANSI strings
+func (t *State) TextRows() []*style.Text {
+	var retRows = make([]*style.Text, t.rows)
 
 	for y := 0; y < t.rows; y++ {
-		retRows[y] = t.AnsiRow(&builder, BufferSourceTerminal, y, &prevFg, &prevBg)
+		retRows[y] = t.Text(BufferSourceTerminal, y)
 	}
 
 	return retRows
@@ -377,8 +385,7 @@ var gfxCharTable = [62]rune{
 // History returns the history buffer starting from a negative offset point from the present moment.  An offset of zero
 // represents the current moment in time, which will represent the last row in the returned array.  The returned array will
 // contain one vertical terminal worth of rows.
-func (t *State) History(offset int) []string {
-	var builder strings.Builder
+func (t *State) History(offset int) []*style.Text {
 	offset -= t.rows
 
 	// offset marks the top of the buffer
@@ -390,8 +397,6 @@ func (t *State) History(offset int) []string {
 	for i := 0; i < t.rows; i++ {
 		finalOffset := offset + i
 		var source BufferSource
-		prevFg := DefaultFG
-		prevBg := DefaultBG
 		virtualRow = finalOffset + t.rows
 		if virtualRow >= 0 {
 			source = BufferSourceTerminal
@@ -401,7 +406,7 @@ func (t *State) History(offset int) []string {
 			source = BufferSourceHistory
 			virtualRow++
 		}
-		t.historyTarget[i] = t.AnsiRow(&builder, source, virtualRow, &prevFg, &prevBg)
+		t.historyTarget[i] = t.Text(source, virtualRow)
 	}
 
 	return t.historyTarget
@@ -512,7 +517,7 @@ func (t *State) resize(cols, rows int) bool {
 		t.swapScreen()
 	}
 	// this is where a render of the history buffer gets but
-	t.historyTarget = make([]string, t.rows)
+	t.historyTarget = make([]*style.Text, t.rows)
 	return slide > 0
 }
 
