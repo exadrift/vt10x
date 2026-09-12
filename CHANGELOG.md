@@ -1,3 +1,5 @@
+# v0.0.10
+- switched to style.Text based row renderer
 # v0.0.9
 - better distinguish between rgb and palette
 # v0.0.8

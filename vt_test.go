@@ -84,7 +84,7 @@ func TestHistoryBuffer(t *testing.T) {
 	//the blank line that gets created at the end when the scroll happens accounts for the extra line
 	assert.Equal(t, 16, hbLen)
 
-	rows := term.AnsiRows()
+	rows := term.TextRows()
 	assert.Len(t, rows, 5)
 
 	historyRows := term.History(0)
@@ -100,6 +100,6 @@ func TestHistoryBuffer(t *testing.T) {
 	curRow := offset - (len(historyRows) - 1)
 	for i, row := range historyRows {
 		line := fmt.Sprintf("line %d", curRow+i)
-		assert.True(t, strings.HasPrefix(row, line))
+		assert.True(t, strings.HasPrefix(row.Render()[0], line))
 	}
 }
