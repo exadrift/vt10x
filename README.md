@@ -109,7 +109,8 @@ maxRows := term.HistoryBufferLength()
 rows := term.History(0)
 for y, row := range rows {
     // set cursor position at the top left of the current row
-    fmt.Print(row.Render())
+    data, _ := row.Render()
+    fmt.Println(data)
 }
 ```
 
