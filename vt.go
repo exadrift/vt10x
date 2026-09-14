@@ -46,7 +46,7 @@ type View interface {
 	Cell(x, y int) Glyph
 
 	// TextRows returns the contents as a list of *style.Text items
-	TextRows() []*style.Text
+	TextRows() style.TextBlock
 
 	// History returns a viewport sized array of lines representing the scrollback history, starting from offset.
 	// An offset of zero represents the current moment in time

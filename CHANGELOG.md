@@ -1,3 +1,5 @@
+# v0.0.11
+- update to the latest style system
 # v0.0.10
 - switched to style.Text based row renderer
 # v0.0.9

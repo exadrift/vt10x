@@ -182,7 +182,6 @@ func (t *State) Cell(x, y int) Glyph {
 }
 
 func (t *State) Text(bufferSource BufferSource, rowNum int) *style.Text {
-	var parts []any
 	var fg, bg Color
 	var cell *Glyph
 	var builder strings.Builder
@@ -202,6 +201,9 @@ func (t *State) Text(bufferSource BufferSource, rowNum int) *style.Text {
 
 	termWidth := t.cols
 
+	var parts []any
+	var curStyles style.Styles
+
 	for x := range termWidth {
 		if x > cols-1 {
 			builder.WriteRune(spaceRune)
@@ -213,60 +215,66 @@ func (t *State) Text(bufferSource BufferSource, rowNum int) *style.Text {
 		fg = cell.FG
 		bg = cell.BG
 
-		if prevFg != DefaultFG && prevFg != fg {
+		fgChanged := prevFg != fg
+		bgChanged := prevBg != bg
+		fgDefaulted := fg == DefaultFG
+		bgDefaulted := bg == DefaultBG
+		if fgChanged || bgChanged {
+			var removeTypes []style.StyleType
+			var addStyles []*style.Style
+			if fgChanged {
+				if fgDefaulted {
+					removeTypes = append(removeTypes, style.StyleTypeFgColor)
+				} else {
+					if fg < 256 {
+						addStyles = append(addStyles, style.GetPaletteColor(uint8(fg)).Fg())
+					} else {
+						b := uint32((fg & 0x0000FF00) >> 8)
+						g := uint32((fg & 0x00FF0000) >> 16)
+						r := uint32((fg & 0xFF000000) >> 24)
+						addStyles = append(addStyles, style.FromRgb(r, g, b).Fg())
+					}
+				}
+			}
+			if bgChanged {
+				if bgDefaulted {
+					removeTypes = append(removeTypes, style.StyleTypeBgColor)
+				} else {
+					if bg < 256 {
+						addStyles = append(addStyles, style.GetPaletteColor(uint8(bg)).Bg())
+					} else {
+						b := uint32((bg & 0x0000FF00) >> 8)
+						g := uint32((bg & 0x00FF0000) >> 16)
+						r := uint32((bg & 0xFF000000) >> 24)
+						addStyles = append(addStyles, style.FromRgb(r, g, b).Bg())
+					}
+				}
+			}
+
 			if builder.Len() > 0 {
-				parts = append(parts, builder.String())
+				parts = append(parts, style.S(builder.String(), curStyles...))
 				builder.Reset()
 			}
-			if fg == DefaultFG {
-				parts = append(parts, style.BlackHi.Fg())
-			} else {
-				if fg < 256 {
-					parts = append(parts, style.GetPaletteColor(uint8(fg)).Fg())
-				} else {
-					b := uint32((fg & 0x0000FF00) >> 8)
-					g := uint32((fg & 0x00FF0000) >> 16)
-					r := uint32((fg & 0xFF000000) >> 24)
-					parts = append(parts, style.FromRgb(r, g, b).Fg())
-				}
 
+			if len(removeTypes) > 0 {
+				curStyles = curStyles.Remove(removeTypes...)
 			}
-			prevFg = fg
-		}
-		if prevBg != DefaultBG && prevBg != bg {
-			if builder.Len() > 0 {
-				parts = append(parts, builder.String())
-				builder.Reset()
+			if len(addStyles) > 0 {
+				curStyles = curStyles.Add(addStyles...)
 			}
-			if bg == DefaultBG {
-				parts = append(parts, style.BlackHi.Bg())
-			} else {
-				if bg < 256 {
-					parts = append(parts, style.GetPaletteColor(uint8(bg)).Bg())
-				} else {
-					b := uint32((fg & 0x0000FF00) >> 8)
-					g := uint32((fg & 0x00FF0000) >> 16)
-					r := uint32((fg & 0xFF000000) >> 24)
-					parts = append(parts, style.FromRgb(r, g, b).Bg())
-				}
-
-			}
-			prevBg = bg
 		}
 
 		builder.WriteRune(cell.Char)
 	}
 	if builder.Len() > 0 {
-		parts = append(parts, builder.String())
-		builder.Reset()
+		parts = append(parts, style.S(builder.String(), curStyles...))
 	}
-	parts = append(parts, style.StyleReset)
 
 	return style.T(parts...)
 }
 
 // TextRows returns the contents as a list of ANSI strings
-func (t *State) TextRows() []*style.Text {
+func (t *State) TextRows() style.TextBlock {
 	var retRows = make([]*style.Text, t.rows)
 
 	for y := 0; y < t.rows; y++ {

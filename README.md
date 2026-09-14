@@ -95,7 +95,8 @@ the second interface allows for rendering of ANSI strings to an external termina
 rows := term.TextRows()
 for y, row := range rows {
     // set cursor position at the top left of the current row
-    fmt.Print(row.Render()[0])
+    data, _ := row.Render()
+    fmt.Println(data)
 }
 ```
 
@@ -109,7 +110,8 @@ maxRows := term.HistoryBufferLength()
 rows := term.History(0)
 for y, row := range rows {
     // set cursor position at the top left of the current row
-    fmt.Print(row)
+    data, _ := row.Render()
+    fmt.Println(data)
 }
 ```
 
