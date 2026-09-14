@@ -11,6 +11,12 @@ github.com/exadrift/go/ansi v0.0.14 h1:+ffba7AEE5uYriQjMk5R5YP1CYR+pqjJxPnGfg2IG
 github.com/exadrift/go/ansi v0.0.14/go.mod h1:WBTcjclFuAikw2HN7/mB6b6HQDmywkJ4HzW5G6jpXZk=
 github.com/exadrift/go/ansi v0.0.15 h1:EDKUvNCHGiQ06Lz6CiE/WCVaVJ1AX+Rbev2CNHTeXZI=
 github.com/exadrift/go/ansi v0.0.15/go.mod h1:WBTcjclFuAikw2HN7/mB6b6HQDmywkJ4HzW5G6jpXZk=
+github.com/exadrift/go/ansi v0.0.18 h1:xu//I6DQDPhynhzjLwCGkrdVILCnxbKDRAFpeeEcbn0=
+github.com/exadrift/go/ansi v0.0.18/go.mod h1:WBTcjclFuAikw2HN7/mB6b6HQDmywkJ4HzW5G6jpXZk=
+github.com/exadrift/go/ansi v0.0.19 h1:Pa4bDfC+od7iGUB5LCAgB5QY+mIHMMIPRDeulDUTzYA=
+github.com/exadrift/go/ansi v0.0.19/go.mod h1:WBTcjclFuAikw2HN7/mB6b6HQDmywkJ4HzW5G6jpXZk=
+github.com/exadrift/go/ansi v0.0.20 h1:zR4wC02L+8oyKgT/FpTyPM9/Nm5FNqBxj4K7uJrljkk=
+github.com/exadrift/go/ansi v0.0.20/go.mod h1:WBTcjclFuAikw2HN7/mB6b6HQDmywkJ4HzW5G6jpXZk=
 github.com/exadrift/go/ringbuf v0.0.1 h1:8XL/++4CuR4/nakry0hiN2H6RVW6NN5fiEl6NPrbrXE=
 github.com/exadrift/go/ringbuf v0.0.1/go.mod h1:NrzM7Kipwul9lUtUn/5s0pJl3rWPFuhxCLaZo+mDrW4=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=

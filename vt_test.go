@@ -100,6 +100,7 @@ func TestHistoryBuffer(t *testing.T) {
 	curRow := offset - (len(historyRows) - 1)
 	for i, row := range historyRows {
 		line := fmt.Sprintf("line %d", curRow+i)
-		assert.True(t, strings.HasPrefix(row.Render()[0], line))
+		rendered, _ := row.Render()
+		assert.True(t, strings.HasPrefix(rendered, line))
 	}
 }

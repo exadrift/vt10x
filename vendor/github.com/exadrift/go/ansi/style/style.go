@@ -2,433 +2,307 @@ package style
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 )
-
-var finder = regexp.MustCompile("\n")
-
-var ansiCodeRemover = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-A]`)
-
-type Color uint32
-
-const (
-	Black Color = iota
-	Red
-	Green
-	Yellow
-	Blue
-	Magenta
-	Cyan
-	White
-	BlackHi
-	RedHi
-	GreenHi
-	YellowHi
-	BlueHi
-	MagentaHi
-	CyanHi
-	WhiteHi
-)
-
-var color256Palette = build256ColorPalette()
 
 type StyleType int
 
 const (
-	StyleTypeFgColor StyleType = iota
+	StyleTypeNone StyleType = iota
+	StyleTypeFgColor
 	StyleTypeBgColor
-	StyleTypeLineBreak
-	StyleTypeReset
+	StyleTypeStrikeout
+	StyleTypeUnderline
+	StyleTypeBold
 )
 
+const ResetStyleAnsi = "\x1b[0m"
+
 type Style struct {
-	Ansi      string
-	StyleType StyleType
+	ansi      string
+	styleType StyleType
 }
 
-type Styles []Style
+func (s *Style) Ansi() string {
+	return s.ansi
+}
 
-// Ansi writes the ANSI codes for an array of styles
-func (s Styles) Ansi() string {
-	b := strings.Builder{}
+type Styles []*Style
+
+func (s Styles) Overrides(styleMap StyleMap) string {
+	var b strings.Builder
 	for _, st := range s {
-		b.WriteString(st.Ansi)
+		if !styleMap.HasStyleType(st.styleType) {
+			b.WriteString(st.ansi)
+		}
 	}
+
 	return b.String()
 }
 
+func (st Styles) Remove(styleTypes ...StyleType) Styles {
+	var newStyles Styles
+	for _, s := range st {
+		filtered := false
+		for _, ty := range styleTypes {
+			if s.styleType == ty {
+				filtered = true
+				break
+			}
+		}
+
+		if !filtered {
+			newStyles = append(newStyles, s)
+		}
+	}
+
+	return newStyles
+}
+
+func (st Styles) Add(styles ...*Style) Styles {
+	var newStyles Styles
+	for _, s := range st {
+		filtered := false
+		for _, sty := range styles {
+			if s.styleType == sty.styleType {
+				filtered = true
+				break
+			}
+		}
+
+		if !filtered {
+			newStyles = append(newStyles, s)
+		}
+	}
+
+	newStyles = append(newStyles, styles...)
+
+	return newStyles
+}
+
+func (st Styles) Ansi() string {
+	var b strings.Builder
+	for _, s := range st {
+		b.WriteString(s.Ansi())
+	}
+
+	return b.String()
+}
+
+type StyleMap map[StyleType]*Style
+
+func (sm StyleMap) Ansi() string {
+	var b strings.Builder
+	for _, s := range sm {
+		b.WriteString(s.ansi)
+	}
+
+	return b.String()
+}
+
+func (sm StyleMap) HasStyleType(styleType StyleType) bool {
+	_, ok := sm[styleType]
+	return ok
+}
+
+func MakeStyleMap(styles ...*Style) StyleMap {
+	styleMap := make(map[StyleType]*Style, len(styles))
+	for _, s := range styles {
+		styleMap[s.styleType] = s
+	}
+
+	return styleMap
+}
+
+type StyledText struct {
+	styles StyleMap
+	text   []rune
+}
+
+func (st *StyledText) Len() int {
+	return len(st.text)
+}
+
+func S(text string, styles ...*Style) *StyledText {
+	return &StyledText{
+		styles: MakeStyleMap(styles...),
+		text:   []rune(text),
+	}
+}
+
 type Text struct {
-	text   []any
+	parts  []*StyledText
 	length int
 }
 
-var (
-	Break = Style{"", StyleTypeLineBreak}
-)
+type TextBlock []*Text
 
-var (
-	StyleReset = Style{"\x1b[0m", StyleTypeReset}
-)
-
-func toRgb(color Color) (uint32, uint32, uint32) {
-	c := uint32(color)
-	return c & 0xFF000000 >> 24, c & 0x00FF0000 >> 16, c & 0x0000FF00 >> 8
-}
-
-func fgColor(color Color) uint32 {
-	var intensity Color
-	if color < 8 {
-		intensity = 30
-	} else {
-		intensity = 90
-	}
-
-	return uint32(intensity + color)
-}
-
-func bgColor(color Color) uint32 {
-	var intensity Color
-	if color < 8 {
-		intensity = 40
-	} else {
-		intensity = 100
-	}
-
-	return uint32(intensity + color)
-}
-
-// Fg return an ANSI foreground style representation of the color
-func (c Color) Fg() Style {
-	// palette color
-	if c < 256 {
-		return Style{fmt.Sprintf("\x1b[%dm", fgColor(c)), StyleTypeFgColor}
-	}
-
-	red, green, blue := toRgb(c)
-	return Style{fmt.Sprintf("\x1b[38;2;%d;%d;%dm", red, green, blue), StyleTypeBgColor}
-}
-
-// Bg return an ANSI background style representation of the color
-func (c Color) Bg() Style {
-	// palette color
-	if c < 256 {
-		return Style{fmt.Sprintf("\x1b[%dm", bgColor(c)), StyleTypeBgColor}
-	}
-
-	red, green, blue := toRgb(c)
-	return Style{fmt.Sprintf("\x1b[48;2;%d;%d;%dm", red, green, blue), StyleTypeBgColor}
-}
-
-// Construct a color from an RGB tri
-func FromRgb(red uint32, green uint32, blue uint32) Color {
-	return Color(red<<24 + green<<16 + blue<<8)
-}
-
-// Generates a styled Text object from a collection of strings and/or style cues
-func T(text ...any) *Text {
-	length := 0
-	var cat []any
-	for _, t := range text {
-		switch ty := t.(type) {
+// T returns a Text object which represents a single line of styled text
+func T(items ...any) *Text {
+	var parts []*StyledText
+	var length int
+	for _, item := range items {
+		switch ty := item.(type) {
+		case *StyledText:
+			parts = append(parts, ty)
+			length += ty.Len()
 		case string:
-			prevStart := 0
-			indexList := finder.FindAllStringIndex(ty, -1)
-			for _, indexes := range indexList {
-				start := indexes[0]
-				end := indexes[1]
-
-				if start > prevStart {
-					fragment := []rune(ty[prevStart:start])
-					length += len(fragment)
-					cat = append(cat, fragment)
-				}
-				cat = append(cat, Break)
-				prevStart = end
-			}
-			if prevStart < len(ty) {
-				fragment := []rune(ty[prevStart:])
-				length += len(fragment)
-				cat = append(cat, fragment)
-			}
-		case Style:
-			cat = append(cat, ty)
-		case Styles:
-			for _, sty := range ty {
-				cat = append(cat, sty)
-			}
-		case *Text:
-			cat = append(cat, ty.text...)
-			length += ty.length
-		case []rune:
-			cat = append(cat, ty)
-			length += len(ty)
+			st := &StyledText{text: []rune(ty)}
+			parts = append(parts, st)
+			length += st.Len()
 		default:
-			panic("unknown type in text")
+			panic(fmt.Errorf("unsupported type when initializing textline: %T", ty))
 		}
 	}
 
 	return &Text{
-		text:   cat,
+		parts:  parts,
 		length: length,
 	}
 }
 
-type RenderOption struct {
-	Width         int
-	MinRows       int
-	DefaultStyles []Style
+type RenderOptions struct {
+	FixedWidth    int
+	StyleDefaults Styles
 }
 
-type RenderOptionFunc func(*RenderOption)
-
-func WithWidthConstraint(width int) RenderOptionFunc {
-	return func(opt *RenderOption) {
-		opt.Width = width
+func WithStyles(styles ...*Style) func(opt *RenderOptions) {
+	return func(opt *RenderOptions) {
+		opt.StyleDefaults = styles
 	}
 }
 
-func WithMinRows(minRows int) RenderOptionFunc {
-	return func(opt *RenderOption) {
-		opt.MinRows = minRows
+func WithFixedWidth(width int) func(opt *RenderOptions) {
+	return func(opt *RenderOptions) {
+		opt.FixedWidth = width
 	}
 }
 
-func WithDefaultStyles(styles ...Style) RenderOptionFunc {
-	return func(opt *RenderOption) {
-		opt.DefaultStyles = styles
+func (t *Text) Render(options ...func(*RenderOptions)) (string, *Text) {
+	var leftOver *Text
+	var leftOverParts []*StyledText
+
+	var builder strings.Builder
+	consumedLength := 0
+	opts := &RenderOptions{}
+	for _, opt := range options {
+		opt(opts)
 	}
+
+	var remaining int
+	if opts.FixedWidth > 0 {
+		remaining = opts.FixedWidth
+	} else {
+		remaining = 1000000
+	}
+
+	for i, part := range t.parts {
+		styleStr := part.styles.Ansi()
+		if styleStr != "" {
+			builder.WriteString(styleStr)
+		}
+		ovrStyleStr := opts.StyleDefaults.Overrides(part.styles)
+		if ovrStyleStr != "" {
+			builder.WriteString(ovrStyleStr)
+		}
+
+		l := len(part.text)
+
+		if l > remaining {
+			builder.WriteString(string(part.text[:remaining]))
+			builder.WriteString(ResetStyleAnsi)
+
+			leftOverParts = append(leftOverParts, &StyledText{
+				styles: part.styles,
+				text:   part.text[remaining:],
+			})
+			if i < len(t.parts)-1 {
+				leftOverParts = append(leftOverParts, t.parts[i+1:]...)
+			}
+			consumedLength += remaining
+			leftOver = &Text{
+				parts:  leftOverParts,
+				length: t.length - consumedLength,
+			}
+
+			remaining = 0
+			break
+		}
+
+		builder.WriteString(string(part.text))
+		builder.WriteString(ResetStyleAnsi)
+		consumedLength += l
+		remaining -= l
+	}
+
+	if opts.FixedWidth > 0 && remaining > 0 {
+		ovrStyleStr := opts.StyleDefaults.Ansi()
+		if ovrStyleStr != "" {
+			builder.WriteString(ovrStyleStr)
+		}
+		builder.WriteString(strings.Repeat(" ", remaining))
+		builder.WriteString(ResetStyleAnsi)
+	}
+
+	return builder.String(), leftOver
 }
 
 func (t *Text) Len() int {
 	return t.length
 }
 
-func (t *Text) Extend(add ...any) *Text {
-	newText := &Text{
-		text:   t.text[:],
-		length: t.length,
-	}
-	for _, item := range add {
-		switch ty := item.(type) {
-		case string:
-			fragment := []rune(ty)
-			newText.text = append(newText.text, fragment)
-			newText.length += len(fragment)
-		case []rune:
-			newText.text = append(newText.text, ty)
-			newText.length += len(ty)
-		case Style:
-			newText.text = append(newText.text, ty)
-		case *Text:
-			newText.text = append(newText.text, ty.text...)
-			newText.length += ty.length
-		default:
-			panic("unknown item being added")
-		}
-	}
-
-	return newText
+// B returns a TextBlock from a series of Text objects
+func B(items ...*Text) TextBlock {
+	return items
 }
 
-func (t *Text) RequiresScroll(width int, height int) bool {
-	totalRows := 0
-	leftOver := 0
-	for _, token := range t.text {
-		switch ty := token.(type) {
-		case []rune:
-			l := len(ty)
-			rows := l / width
-			leftOver += l % width
-			if leftOver > width {
-				rows += leftOver / width
-				leftOver = leftOver % width
-			}
-
-			totalRows += rows
-		case Style:
-			if ty.StyleType == StyleTypeLineBreak {
-				leftOver = 0
-				totalRows++
-			}
+// FitsOnPage returns true if the TextBlock can be rendered to a space with the provided dimensions
+func (tb TextBlock) FitsOnPage(width int, height int) bool {
+	lines := 0
+	for _, row := range tb {
+		lines += row.length / width
+		if row.length%width > 0 {
+			lines++
 		}
-		if totalRows > height {
-			return true
+		if lines > height {
+			return false
 		}
 	}
-	if leftOver > 0 {
-		totalRows++
-	}
 
-	return totalRows > height
+	return true
 }
 
-// Wrap takes an existing text object and wraps it into an array of text objects, taking
-// into account and removing newlines in the process.  Empty lines will result in empty
-// Text objects in the array (not null, just empty)
-func (t *Text) Wrap(width int) []*Text {
-	var rows []*Text
-	var curRow []any
-	curRowLen := 0
-
-	for _, token := range t.text {
-		switch tType := token.(type) {
-		case Style:
-			switch tType.StyleType {
-			case StyleTypeLineBreak:
-				// if the current row is empty, then we're ok to interpolate nil and just add an empty Text object
-				rows = append(rows, T(curRow...))
-				curRow = nil
-				curRowLen = 0
-			default:
-				curRow = append(curRow, tType)
+func (tb TextBlock) Render(width int, height int, yOffset int, defaultStyles ...*Style) []string {
+	lines := make([]string, height)
+	curLine := 0
+	yIndex := 0
+Outer:
+	for _, text := range tb {
+		var remaining = text
+		var rendered string
+		for remaining != nil {
+			rendered, remaining = remaining.Render(WithFixedWidth(width), WithStyles(defaultStyles...))
+			if curLine >= yOffset {
+				lines[yIndex] = rendered
+				yIndex++
 			}
-		case []rune:
-			for len(tType) > 0 {
-				if curRowLen+len(tType) <= width || width == 0 {
-					curRow = append(curRow, string(tType))
-					curRowLen += len(tType)
-					tType = nil
-				} else {
-					curRow = append(curRow, string(tType[:width-curRowLen]))
-					tType = tType[width-curRowLen:]
-					rows = append(rows, T(curRow...))
-					curRow = nil
-					curRowLen = 0
-				}
+			curLine++
+			if yIndex >= height {
+				break Outer
 			}
 		}
 	}
 
-	if len(curRow) > 0 {
-		rows = append(rows, T(curRow...))
-	}
-
-	return rows
-}
-
-func (t *Text) Render(options ...RenderOptionFunc) []string {
-	opt := &RenderOption{}
-	for _, ofunc := range options {
-		ofunc(opt)
-	}
-	if opt.MinRows == 0 {
-		opt.MinRows = 1
-	}
-
-	var rows []string
-	var curRow strings.Builder
-	curRowLen := 0
-
-	// first apply any style defaults
-	for _, su := range opt.DefaultStyles {
-		_, _ = curRow.WriteString(su.Ansi)
-	}
-
-	for _, token := range t.text {
-		switch tType := token.(type) {
-		case Style:
-			switch tType.StyleType {
-			case StyleTypeLineBreak:
-				// this if block isn't executed when width is zero, which means no padding happens, this is correct
-				if curRowLen < opt.Width {
-					curRow.WriteString(strings.Repeat(" ", opt.Width-curRowLen))
-				}
-				rows = append(rows, curRow.String())
-				curRow.Reset()
-				curRowLen = 0
-			default:
-				curRow.WriteString(tType.Ansi)
-				if tType.StyleType == StyleTypeReset {
-					// apply the style defaults again
-					for _, su := range opt.DefaultStyles {
-						_, _ = curRow.WriteString(su.Ansi)
-					}
-				}
-			}
-		case []rune:
-			for len(tType) > 0 {
-				if curRowLen+len(tType) <= opt.Width || opt.Width == 0 {
-					curRow.WriteString(string(tType))
-					curRowLen += len(tType)
-					tType = nil
-				} else {
-					curRow.WriteString(string(tType[:opt.Width-curRowLen]))
-					tType = tType[opt.Width-curRowLen:]
-					rows = append(rows, curRow.String())
-					curRow.Reset()
-					curRowLen = 0
-				}
-			}
+	// see if more lines are required
+	if yIndex < height-1 {
+		whitespace := strings.Repeat(" ", width)
+		t := T(whitespace)
+		for yIndex < height {
+			line, _ := t.Render(WithStyles(defaultStyles...))
+			lines[yIndex] = line
+			yIndex++
 		}
 	}
 
-	if curRowLen > 0 && curRowLen < opt.Width {
-		curRow.WriteString(strings.Repeat(" ", opt.Width-curRowLen))
-	}
-	if curRow.Len() > 0 {
-		rows = append(rows, curRow.String())
-		curRow.Reset()
-	}
-
-	// if there are empty rows as far as the minimum height is concerned, this will fill them
-	for i := len(rows); i < opt.MinRows; i++ {
-		if opt.Width > 0 {
-			rows = append(rows, strings.Repeat(" ", opt.Width))
-		} else {
-			rows = append(rows, "")
-		}
-	}
-
-	return rows
-}
-
-// StripAnsi will remove any ANSI sequences from the provided text
-func StripAnsi(text string) string {
-	return ansiCodeRemover.ReplaceAllString(text, "")
-}
-
-func build256ColorPalette() []Color {
-	palette := make([]Color, 256)
-
-	palette[0] = FromRgb(0, 0, 0)
-	palette[1] = FromRgb(128, 0, 0)
-	palette[2] = FromRgb(0, 128, 0)
-	palette[3] = FromRgb(128, 128, 0)
-	palette[4] = FromRgb(0, 0, 128)
-	palette[5] = FromRgb(128, 0, 128)
-	palette[6] = FromRgb(0, 128, 128)
-	palette[7] = FromRgb(192, 192, 192)
-	palette[8] = FromRgb(128, 128, 128)
-	palette[9] = FromRgb(255, 0, 0)
-	palette[10] = FromRgb(0, 255, 0)
-	palette[11] = FromRgb(255, 255, 0)
-	palette[12] = FromRgb(0, 0, 255)
-	palette[13] = FromRgb(255, 0, 255)
-	palette[14] = FromRgb(0, 255, 255)
-	palette[15] = FromRgb(255, 255, 255)
-
-	// color section
-	intensity := [6]uint32{0, 95, 135, 175, 215, 255}
-	for r := range 6 {
-		for g := range 6 {
-			for b := range 6 {
-				index := 16 + (36*r + 6*g + b)
-				palette[index] = FromRgb(intensity[r], intensity[g], intensity[b])
-			}
-		}
-	}
-
-	// grayscale section
-	for i := range 24 {
-		color := uint32(10*i + 8)
-		palette[232+i] = FromRgb(color, color, color)
-	}
-
-	return palette
-}
-
-// Returns a color from the standard palette
-func GetPaletteColor(color uint8) Color {
-	return color256Palette[color]
+	return lines
 }
