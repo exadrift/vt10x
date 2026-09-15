@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	github.com/alecthomas/assert v1.0.0
-	github.com/exadrift/go/ansi v0.0.22
+	github.com/exadrift/go/ansi v0.0.23
 	github.com/exadrift/go/ringbuf v0.0.1
 )
 
