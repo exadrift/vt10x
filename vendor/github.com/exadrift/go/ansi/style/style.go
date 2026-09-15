@@ -123,11 +123,21 @@ func (st *StyledText) Len() int {
 	return len(st.text)
 }
 
-func S(text string, styles ...*Style) *StyledText {
-	return &StyledText{
+func S(text any, styles ...*Style) *StyledText {
+	r := &StyledText{
 		styles: MakeStyleMap(styles...),
-		text:   []rune(text),
 	}
+
+	switch t := text.(type) {
+	case string:
+		r.text = []rune(t)
+	case []rune:
+		r.text = t
+	default:
+		panic(fmt.Errorf("unknown text type %T", t))
+	}
+
+	return r
 }
 
 type Text struct {
@@ -155,6 +165,10 @@ func T(items ...any) *Text {
 			length += ty.Len()
 		case string:
 			st := &StyledText{text: []rune(ty)}
+			parts = append(parts, st)
+			length += st.Len()
+		case []rune:
+			st := &StyledText{text: ty}
 			parts = append(parts, st)
 			length += st.Len()
 		default:

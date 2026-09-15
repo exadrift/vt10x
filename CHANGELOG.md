@@ -1,3 +1,5 @@
+# v0.0.13
+- update style module
 # v0.0.12
 - return the terminal as a list of rows, not a block object
 # v0.0.11
