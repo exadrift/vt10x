@@ -1,3 +1,5 @@
+# v0.0.12
+- return the terminal as a list of rows, not a block object
 # v0.0.11
 - update to the latest style system
 # v0.0.10

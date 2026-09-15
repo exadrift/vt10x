@@ -274,7 +274,7 @@ func (t *State) Text(bufferSource BufferSource, rowNum int) *style.Text {
 }
 
 // TextRows returns the contents as a list of ANSI strings
-func (t *State) TextRows() style.TextBlock {
+func (t *State) TextRows() []*style.Text {
 	var retRows = make([]*style.Text, t.rows)
 
 	for y := 0; y < t.rows; y++ {

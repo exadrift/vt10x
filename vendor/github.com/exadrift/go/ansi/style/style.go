@@ -135,7 +135,14 @@ type Text struct {
 	length int
 }
 
-type TextBlock []*Text
+type TextBlock struct {
+	text                  []*Text
+	lastCheckedWidthFits  int
+	lastCheckedHeightFits int
+	lastCheckedFitsOnPage bool
+	lastCheckedRowsWidth  int
+	lastCheckedRowsNum    int
+}
 
 // T returns a Text object which represents a single line of styled text
 func T(items ...any) *Text {
@@ -252,32 +259,64 @@ func (t *Text) Len() int {
 }
 
 // B returns a TextBlock from a series of Text objects
-func B(items ...*Text) TextBlock {
-	return items
+func B(items ...*Text) *TextBlock {
+	return &TextBlock{
+		text: items,
+	}
 }
 
 // FitsOnPage returns true if the TextBlock can be rendered to a space with the provided dimensions
-func (tb TextBlock) FitsOnPage(width int, height int) bool {
+func (tb *TextBlock) FitsOnPage(width int, height int) bool {
+	if tb.lastCheckedWidthFits == width && tb.lastCheckedHeightFits == height {
+		return tb.lastCheckedFitsOnPage
+	}
+
 	lines := 0
-	for _, row := range tb {
+	for _, row := range tb.text {
 		lines += row.length / width
 		if row.length%width > 0 {
 			lines++
 		}
 		if lines > height {
+			tb.lastCheckedWidthFits = width
+			tb.lastCheckedHeightFits = height
+			tb.lastCheckedFitsOnPage = false
 			return false
 		}
 	}
 
+	tb.lastCheckedWidthFits = width
+	tb.lastCheckedHeightFits = height
+	tb.lastCheckedFitsOnPage = true
 	return true
 }
 
-func (tb TextBlock) Render(width int, height int, yOffset int, defaultStyles ...*Style) []string {
+// NumLines returns the number of lines needed to represent itself, given the supplied width
+func (tb *TextBlock) NumLines(width int) int {
+	if tb.lastCheckedRowsWidth == width {
+		return tb.lastCheckedRowsNum
+	}
+
+	lines := 0
+	for _, row := range tb.text {
+		lines += row.length / width
+		if row.length%width > 0 {
+			lines++
+		}
+	}
+
+	tb.lastCheckedRowsWidth = width
+	tb.lastCheckedRowsNum = lines
+
+	return lines
+}
+
+func (tb *TextBlock) Render(width int, height int, yOffset int, defaultStyles ...*Style) []string {
 	lines := make([]string, height)
 	curLine := 0
 	yIndex := 0
 Outer:
-	for _, text := range tb {
+	for _, text := range tb.text {
 		var remaining = text
 		var rendered string
 		for remaining != nil {
