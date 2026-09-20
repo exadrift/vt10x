@@ -1,5 +1,3 @@
-# v0.0.15
-- bump version
 # v0.0.14
 - fix issue with color changes not updating
 # v0.0.13
